@@ -1,0 +1,2 @@
+fazer alguns n = 4000 e -o3
+explicar o problema em cache blocking
