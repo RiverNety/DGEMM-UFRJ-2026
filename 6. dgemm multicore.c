@@ -6,7 +6,7 @@
 #define BLOCKSIZE 64
 #define ALIGNMENT 64 
 
-// gcc -mavx2  -fopenmp -o dgemm.exe '5. dgemm multicore.c'
+// gcc -mavx2  -fopenmp -o dgemm.exe '6. dgemm multicore.c'
 
 void do_block_mult_proc(int n, int si, int sj, int sk,
                       double *A, double *B, double *C)
