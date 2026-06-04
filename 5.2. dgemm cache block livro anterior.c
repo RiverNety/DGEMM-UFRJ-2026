@@ -6,20 +6,33 @@
 #define BLOCKSIZE 32
 #define ALIGNMENT 64 
 
-
-// compilar com -mavx2
-// esse é o código referente ao capítulo 3.8
-void dgemm_subword (size_t n, double* A, double* B, double* C)
+// gcc -mavx2 -o dgemm.exe '4.2. dgemm cache block livro anterior.c'
+void do_block (int n, int si, int sj, int sk,
+ double *A, double *B, double *C)
 {
-    for ( size_t i = 0; i < n; i+=4 )
-        for ( size_t j = 0; j < n; j++ ) {
-            __m256d c0 = _mm256_load_pd(C+i+j*n); /* c0 = C[i][j] */
-            for( size_t k = 0; k < n; k++ )
-                c0 = _mm256_add_pd(c0, /* c0 += A[i][k]*B[k][j] */
-                _mm256_mul_pd(_mm256_load_pd(A+i+k*n),
-                _mm256_broadcast_sd(B+k+j*n)));
-                _mm256_store_pd(C+i+j*n, c0); /* C[i][j] = c0 */
-        }
+ for ( int i = si; i < si+BLOCKSIZE; i+=UNROLL*4 )
+ for ( int j = sj; j < sj+BLOCKSIZE; j++ ) {
+ __m256d c[4];
+ for ( int x = 0; x < UNROLL; x++ )
+ c[x] = _mm256_load_pd(C+i+x*4+j*n);
+ for( int k = sk; k < sk+BLOCKSIZE; k++ )
+ {
+ __m256d b = _mm256_broadcast_sd(B+k+j*n);
+ for (int x = 0; x < UNROLL; x++)
+ c[x] = _mm256_add_pd(c[x], /* c[x]+=A[i][k]*b */
+ _mm256_mul_pd(_mm256_load_pd(A+n*k+x*4+i), b));
+ }
+ for ( int x = 0; x < UNROLL; x++ )
+ _mm256_store_pd(C+i+x*4+j*n, c[x]);
+ }
+
+}
+void dgemm (int n, double* A, double* B, double* C)
+{
+ for ( int sj = 0; sj < n; sj += BLOCKSIZE )
+ for ( int si = 0; si < n; si += BLOCKSIZE )
+ for ( int sk = 0; sk < n; sk += BLOCKSIZE )
+ do_block(n, si, sj, sk, A, B, C);
 }
 
 void inicializar_1(size_t n, double* a) {
@@ -36,7 +49,7 @@ void inicializar_0(size_t n, double* a) {
 
 int main(int argc, char* argv[]) {
 
-    size_t n = 1000;
+    size_t n = 1024;
 
     double* a = (double*)_mm_malloc(n * n * sizeof(double),ALIGNMENT);
     double* b = (double*)_mm_malloc(n * n * sizeof(double),ALIGNMENT);
@@ -51,7 +64,7 @@ int main(int argc, char* argv[]) {
     for(int i = 0; i < 5; i++) {
         inicializar_0(n, c);
         clock_t start = clock();
-        dgemm_subword(n, a, b, c);
+        dgemm(n, a, b, c);
         clock_t stop = clock();
 
         double elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC * 1000;
@@ -66,9 +79,9 @@ int main(int argc, char* argv[]) {
 
     //da problema?
 
-    free(a);
-    free(b);
-    free(c);
+    _mm_free(a);
+    _mm_free(b);
+    _mm_free(c);
 
     return 0;
 }
